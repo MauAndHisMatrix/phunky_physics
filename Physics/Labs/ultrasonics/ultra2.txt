@@ -1,0 +1,243 @@
+"""
+Ultrasonics Script 2
+"""
+
+# Standard library imports
+
+# Third-party imports
+# from IPython.display import display
+from typing import Callable
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.optimize as sci
+
+# Uni / my modules
+import marawan_LSFR
+# from uni_made import marawan_LSFR_20
+# from lab_functions import straight_line_interval
+# from Physics.Assignments.marawan_final_assignment import round_to_sig
+
+
+# Data Import
+ultrasonics_data = pd.read_csv(filepath_or_buffer='https://docs.google.com/spreadsheets/d/e/2PACX-1vSQk'\
+                    'YXTg7kJ8iv9UbEYUtghgHdpPdNBxVMFQ-NMDZGb8XzZojzFp-kzFKE1kdziMX-_IlRRou1X3A8v/pub?gid=0&single=true&output=csv')
+
+
+attenuation_data = pd.read_csv(filepath_or_buffer='https://docs.google.com/spreadsheets/d/e/2PACX-1vSQkYXTg7kJ8iv9'\
+                    'UbEYUtghgHdpPdNBxVMFQ-NMDZGb8XzZojzFp-kzFKE1kdziMX-_IlRRou1X3A8v/pub?gid=1776301516&single=true&output=csv')
+
+
+def round_to_sig(num: float, sig_fig: int=3) -> float:
+    """
+    This function rounds the given value to the desired number of
+    significant figures.
+
+    Parameters:
+        num
+        sig_fig: The desired no. of sig. figures. 3 is the default.
+
+    Returns:
+        The rounded number
+    """
+    one_sig_fig = - int(np.floor(np.log10(abs(num))))
+
+    return round(num, one_sig_fig - 1 + sig_fig)
+
+
+def calculate_reduced_chi(chi_result: float,
+                          sample_size: int,
+                          free_parameters: int=1):
+    """
+    This function calculates the reduced chi-squared value of a
+    result given the sample size and number of free parameters.
+
+    Parameters:
+        chi_result: Chi-squared value
+        sample_size: Number of data points
+        free_parameters: Number of free parameters in the fitting
+                        expression. For example, there are 3 in the case
+                        of the BW expression: mass, width and constant.
+    """
+    deg_of_freedom = sample_size - free_parameters
+
+    return chi_result / deg_of_freedom
+
+
+def chi_squared(data: np.ndarray,
+                fitting_expression: Callable,
+                *free_parameters) -> float:
+    """
+    This function calculates the chi-squared value of data being fitted
+    to a given function.
+
+    Parameters:
+        data
+        fitting_expression: The function that the data is being fitted to.
+        free_parameters: The free parameters required in the fitting
+                        expression's calculations.
+    Returns:
+        chi_squared_value
+    """
+    chi_sq_value = 0.
+    for data_point in data:
+        prediction = fitting_expression(data_point[0], *free_parameters)
+        chi_sq_value += ((prediction - data_point[1]) / data_point[2])**2
+
+    return chi_sq_value
+
+
+def speed_of_sound_calculations(data: pd.DataFrame) -> float:
+    ultrasonics_data = data
+    nodes = np.array(ultrasonics_data.loc[:34, 'n']).astype(float)
+    freq = np.array(ultrasonics_data.loc[:34, 'measured_f(khz)']).astype(float) * 1e3
+    errors = np.array(ultrasonics_data.loc[:34, 'error_f']).astype(float) * 1e3
+
+    length = 1.207 # metres
+    length_error = 0.01 # metres
+    gradient, c = np.polyfit(nodes, freq, 1)
+    sound_speed = 2 * length * gradient
+
+    avg_freq = sum(freq) / len(freq)
+    freq_error = 1
+    gradient_error = gradient * (freq_error / avg_freq)
+
+    sound_error = sound_speed * np.sqrt((gradient_error / gradient)**2 + (length_error / length)**2)
+
+    # fig = plt.figure(0)
+    # axes = fig.add_subplot(111)
+
+    # axes.text(15, 12, f"m = ({round_to_sig(gradient, 4)} +/- {gradient_error:.2f}) " + r'$s^{-1}$'\
+    #                     f"\nc = ({round_to_sig(sound_speed)} +/- {round_to_sig(sound_error)}) " + r'$ms^{-1}$')
+
+    # axes.errorbar(nodes, freq, yerr=errors, fmt='o', markersize=3)
+    # axes.plot(nodes, gradient * nodes + c, linewidth=2, label="Line of best fit")
+    # axes.plot(nodes, nodes * (4900 / (2 * length)), linewidth=2, label=r"Theoretical, speed = $4900 ms^{-1}$", dashes=[3,1,2])
+
+    # axes.set_title("Resonant frequencies at incremental nodes", fontsize=16, color="black")
+    # axes.set_xlabel("Nodes", fontsize=12)
+    # axes.set_ylabel("Frequency (Hz)", fontsize=12)
+
+    # axes.legend(loc='upper left', fontsize=10)
+    # # plt.savefig("2nd_cw_ultrasonics.png", dpi=300)
+    # plt.show()
+
+    # print(f"Speed of sound: {round(sound_speed, 2)} m/s")
+
+    return sound_speed, sound_error
+
+
+def lorentzian(freq, amp, centre, hwhm):
+    return amp * (hwhm**2 / ((freq - centre)**2 + hwhm**2))
+
+
+def frequency_from_lorentzian(amp, peak, centre, hwhm, solution_2: bool=False):
+    if solution_2:
+        return centre - (np.sqrt(hwhm**2 * (peak / amp - 1)))
+    return centre + (np.sqrt(hwhm**2 * (peak / amp - 1)))
+
+
+# def gaussian(freq, amp, centre, hwhm):
+#     sigma = hwhm**2 / (4 * np.log(2))
+#     return amp * (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp((-1./2.) * ((freq - centre) / sigma)**2)
+    # return amp * np.exp((-1./2.) * ((freq - centre) / sigma)**2)
+
+
+def fit_distribution(distribution: Callable, x, y, amp: int, cen: float, hwhm: float, errors=None):
+    optimals, covariance = sci.curve_fit(distribution, x, y, p0=[amp, cen, hwhm], sigma=errors, absolute_sigma=False)
+    param_errors = np.sqrt(np.diag(covariance))
+
+    return optimals, param_errors
+
+
+def chi_analysis(x, y, y_error, *free_params, lsfr: bool=False):
+    if lsfr:
+        labels = {
+            'plot_title': 'Chi Analysis of the Optical Rotatory Dispersion Curve',
+            'x_label': 'Wavelength of light (nm)',
+            'y_label': r'Specific rotation (deg dm$^{-1}$g$^{-1}$ml))'
+        }   
+        marawan_LSFR.main(labels, x, y, y_error)
+    else:
+        x = np.array(x).reshape((len(x), 1))
+        y = np.array(y).reshape((len(y), 1))
+        y_error = np.array(y_error).reshape((len(y_error), 1))
+        data = np.hstack((x, y, y_error))
+        print(data)
+
+        chi_value = chi_squared(data, lorentzian, *free_params)
+        red_chi = calculate_reduced_chi(chi_value, data.shape[0])
+
+    return chi_value, red_chi
+
+
+def plot_response_curve(data: pd.DataFrame, speed, speed_error) -> None:
+    attenuation_data = data
+    freq2 = np.array(attenuation_data.loc[:39, '4_freq(khz)']).astype(float)
+    amp_data = np.array(attenuation_data.loc[:39, '4_amplitude(mV)']).astype(float)
+    errors_amp = np.array(attenuation_data.loc[:39, '4_error']).astype(float)
+    # freq2 = np.array(attenuation_data.loc[:44, '12_freq(khz)']).astype(float)
+    # amp_data = np.array(attenuation_data.loc[:44, '12_amplitude(mV)']).astype(float)
+    # errors_amp = np.array(attenuation_data.loc[:44, '12_error']).astype(float)
+    # freq2 = np.array(attenuation_data.loc[:76, '40_freq(khz)']).astype(float)
+    # amp_data = np.array(attenuation_data.loc[:76, '40_amplitude(mV)']).astype(float)
+    # errors_amp = np.array(attenuation_data.loc[:76, '40_error']).astype(float)
+
+    fig2 = plt.figure(1)
+    axes2 = fig2.add_subplot(111)
+
+    axes2.errorbar(freq2, amp_data, yerr=errors_amp, fmt='o', markersize=3, color='green')
+    
+    [amp, centre, hwhm], param_errors = fit_distribution(lorentzian, freq2, amp_data, 1050, 3.955, 0.02, errors_amp)
+    # [amp, centre, hwhm], param_errors = fit_distribution(lorentzian, freq2, amp_data, 145, 11.96, 0.04, errors_amp)
+    # [amp, centre, hwhm], param_errors = fit_distribution(lorentzian, freq2, amp_data, 118, 39.968, 0.07, errors_amp)
+
+    chi, red_chi = chi_analysis(freq2, amp_data, errors_amp, amp, centre, hwhm)
+
+    print(f"Peak amplitude: {amp:.4f} +/- {param_errors[0]:.4f}")
+    print(f"Central frequency: {centre:.4f} +/- {param_errors[1]:.4f}")
+    print(f"FWHM: { 2 * hwhm:.4f} +/- {2 * param_errors[2]:.4f}")
+
+    half_power_point = amp / (2**0.5)
+    half_power_points_x_coods = [frequency_from_lorentzian(half_power_point, amp, centre, hwhm), 
+                    frequency_from_lorentzian(half_power_point, amp, centre, hwhm, solution_2=True)]
+
+    delta_f = half_power_points_x_coods[0] - half_power_points_x_coods[1]
+
+    quality = centre / delta_f
+    q_error = quality * np.sqrt((param_errors[2] / hwhm)**2 + (param_errors[1] / centre)**2)
+
+    alpha = (np.pi * centre * 1e3) / (quality * speed)
+    alpha_error = alpha * np.sqrt((param_errors[1] / centre)**2 + (q_error / quality)**2 + (speed_error / speed)**2)
+
+    print(f"Q = {quality:.4f} +/- {q_error:.4f}")
+    print(f"Alpha = {alpha:.4f} +/- {alpha_error:.6f}")
+
+    print(f"chi = {chi:.3f}")
+    print(f"reduced chi = {red_chi:.3f}")
+
+    axes2.plot(freq2, lorentzian(freq2, amp, centre, hwhm), linewidth=2, color='blue', label="Line of best fit")
+
+    hpp_coods = [half_power_points_x_coods, [half_power_point] * 2]
+    axes2.plot(hpp_coods[0], hpp_coods[1], linewidth=1, color='orange', label=r'$\delta f$' + f' = {delta_f:.3f} kHz', dashes=[2,1])
+
+    axes2.plot([centre, centre], [60, amp], linewidth=2, color='red', label=r'$f_{0}$' + f' = {centre:.3f} kHz', dashes=[3,1,2])
+
+    axes2.text(11.962, 70, f"Q = ({quality:.2f}" + r" $\pm$ " + f"{q_error:.2f})\n"\
+                            r"$\alpha = (2.16 x 10^{-2}) \pm (2 x 10^{-4})$", fontsize=9)
+
+    axes2.set_title("Resonant Response Curve", fontsize=16, color="black")
+    axes2.set_xlabel("Frequency (kHz)", fontsize=12)
+    axes2.set_ylabel("Amplitude (mV)", fontsize=12)
+
+    axes2.set_ylim([60, 151])
+
+    plt.legend()
+    plt.savefig("2nd_response_ultrasonics.png", dpi=300)
+    plt.show()
+
+
+if __name__ == "__main__":
+    speed, speed_error = speed_of_sound_calculations(ultrasonics_data)
+    plot_response_curve(attenuation_data, speed, speed_error)
+

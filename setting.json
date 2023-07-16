@@ -1,0 +1,63 @@
+{
+    "editor.suggestSelection": "first",
+    "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+    "python.jediEnabled": false,
+    "terminal.integrated.rendererType": "dom",
+    "editor.fontSize": 14,
+    "terminal.integrated.shell.windows": "/bin/zsh",
+    "python.envFile": ".env",
+    "python.autoComplete.extraPaths": [
+        "./cc_versions/master_cc",
+        "./cc_versions/eliza_cc",
+        "./cc_versions/object_orientated_cc",
+        "./settings_abstractor",
+        "./finite_state_machine/finite_state_machine_core",
+        "./finite_state_machine/finite_state_machine_utils"
+    ],
+    "terminal.integrated.fontFamily": "monospace",
+    // "editor.fontFamily": "'Cascadia Code', 'Courier New', monospace, 'Droid Sans Fallback'",
+    // "editor.fontFamily": "'Noto Mono', 'Courier New', monospace, 'Droid Sans Fallback'",
+    // "editor.fontFamily": "'Hack', 'Courier New', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'Fira Code', 'Courier New', monospace, 'Droid Sans Fallback'",
+    "editor.fontLigatures": true,
+    // "editor.fontWeight": "300", // Light
+    // "editor.fontWeight": "400", // Regular
+    "editor.fontWeight": "500", // Medium
+    // "editor.fontWeight": "600", // Bold
+    // "editor.tokenColorCustomizations": {
+//       "textMateRules": [
+//           {
+//               "scope": "keyword",
+//               "settings": {
+//                   "fontStyle": "bold"
+//               }
+//           },
+//           {
+//               "scope": "storage",
+//               "settings": {
+//                   "fontStyle": "bold"
+//               }
+//           },
+//           {
+//               "scope": "constant.language",
+//               "settings": {
+//                   "fontStyle": "bold"
+//               }
+//           },
+//           {
+//               "scope": "support.class.builtin",
+//               "settings": {
+//                   "fontStyle": "bold"
+//               }
+//           }
+//       ]
+// },
+"python.pythonPath": "/usr/bin/python3",
+"python.linting.pylintEnabled": true,
+"python.linting.enabled": true,
+"window.zoomLevel": 0,
+"editor.columnSelection": false,
+"editor.find.autoFindInSelection": "always",
+"workbench.colorTheme": "Andromeda Bordered",
+"python.languageServer": "Microsoft"
+}

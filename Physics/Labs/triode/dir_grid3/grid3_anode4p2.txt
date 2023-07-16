@@ -1,0 +1,12 @@
+Grid Voltage (-10V), Anode current (microA) , Uncertainty (microA) ANODE VOLTAGE 210V Grid 3
+4.89, 1, 1
+4.51, 6, 1
+4.00, 22, 1
+3.50, 56, 1
+3.01, 115, 1
+2.48, 219, 1
+1.99, 366, 1
+1.50, 606, 1
+1.00, 964, 1
+0.49, 1322, 1
+0, 1572, 1

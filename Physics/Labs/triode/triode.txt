@@ -1,0 +1,279 @@
+"""
+Triode script 2
+"""
+
+# Standard library imports
+import glob
+
+# Third-party imports
+# from IPython.display import display
+from typing import Callable
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.optimize as sci
+import lmfit as lm
+
+# Uni / my modules
+# import marawan_LSFR
+# from uni_made import marawan_LSFR_20
+# from lab_functions import straight_line_interval
+# from Physics.Assignments.marawan_final_assignment import round_to_sig
+# from modules_by_marawan.useful_lab_funcs import chi_analysis, fit_distribution
+
+A_FIXED_ANODE_DATA = glob.glob("./dir_grid1/anode*", recursive=True)
+A_FIXED_GRID_DATA = glob.glob("./dir_grid1/grid*", recursive=True)
+
+B_FIXED_ANODE_DATA = glob.glob("./dir_grid2/*anode*", recursive=True)
+B_FIXED_GRID_DATA = glob.glob("./dir_grid2/*_grid*", recursive=True)
+
+C_FIXED_ANODE_DATA = glob.glob("./dir_grid3/*anode*", recursive=True)
+C_FIXED_GRID_DATA = glob.glob("./dir_grid3/*vg*", recursive=True)
+
+D_FIXED_CURRENT_DATA = "./current/ia_700.txt"
+
+
+def calculate_reduced_chi(chi_result: float,
+                          sample_size: int,
+                          free_parameters: int=1):
+    """
+    This function calculates the reduced chi-squared value of a
+    result given the sample size and number of free parameters.
+
+    Parameters:
+        chi_result: Chi-squared value
+        sample_size: Number of data points
+        free_parameters: Number of free parameters in the fitting
+                        expression. For example, there are 3 in the case
+                        of the BW expression: mass, width and constant.
+    """
+    deg_of_freedom = sample_size - free_parameters
+
+    return chi_result / deg_of_freedom
+
+
+def chi_squared(data: np.ndarray,
+                fitting_expression: Callable,
+                *free_parameters) -> float:
+    """
+    This function calculates the chi-squared value of data being fitted
+    to a given function.
+
+    Parameters:
+        data
+        fitting_expression: The function that the data is being fitted to.
+        free_parameters: The free parameters required in the fitting
+                        expression's calculations.
+    Returns:
+        chi_squared_value
+    """
+    chi_sq_value = 0.
+    for data_point in data:
+        prediction = fitting_expression(data_point[0], *free_parameters)
+        chi_sq_value += ((prediction - data_point[1]) / data_point[2])**2
+
+    return chi_sq_value
+
+
+def fit_distribution(distribution: Callable, x, y, errors=None, *params):
+    optimals, covariance = sci.curve_fit(distribution, x, y, p0=params, sigma=errors, absolute_sigma=False)
+    param_errors = np.sqrt(np.diag(covariance))
+
+    return optimals, param_errors
+
+
+def chi_analysis(func, x, y, y_error, *free_params, lsfr: bool=False):
+    if lsfr:
+        labels = {
+            'plot_title': 'Chi Analysis of the Optical Rotatory Dispersion Curve',
+            'x_label': 'Wavelength of light (nm)',
+            'y_label': r'Specific rotation (deg dm$^{-1}$g$^{-1}$ml))'
+        }
+        marawan_LSFR.main(labels, x, y, y_error)
+    else:
+        x = np.array(x).reshape((len(x), 1))
+        y = np.array(y).reshape((len(y), 1))
+        y_error = np.array(y_error).reshape((len(y_error), 1))
+        data = np.hstack((x, y, y_error))
+
+        chi_value = chi_squared(data, func, *free_params)
+        red_chi = calculate_reduced_chi(chi_value, data.shape[0], len(free_params))
+
+    return chi_value, red_chi
+
+
+def plot_data(x_label, y_label, title, fig_name, checkpoint:tuple, *datasets):
+
+    fig = plt.figure(1)
+    axes = fig.add_subplot(111)
+
+    labels = [
+        [["Grid voltage 0 V"] + [f"Grid voltage -{x} V" for x in np.linspace(2.5, 5, 2)] + ["Grid voltage -7 V"],
+        [f"Anode voltage {x} V" for x in np.linspace(250, 212.5, 4)]],
+
+        [["Grid voltage 0 V"] + [f"Grid voltage -{x} V" for x in np.linspace(4, 12, 3)],
+        [f"Anode voltage {x} V" for x in np.linspace(250, 175, 4)]],
+
+        [["Grid voltage 0 V"] + [f"Grid voltage -{x} V" for x in np.linspace(4, 12, 3)],
+        [f"Anode voltage {x} V" for x in np.linspace(250, 190, 4)]]
+    ]
+
+    for i, data in enumerate(datasets):
+
+        axes.plot(data[:, 0], data[:, 1], label=labels[checkpoint[0]][checkpoint[1]][i])
+        axes.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], fmt='.', color='black')
+
+    axes.set_xlabel(x_label)
+    axes.set_ylabel(y_label)
+    axes.set_title(title)
+
+    plt.legend()
+    plt.savefig(fig_name, dpi=900)
+    plt.show()
+
+
+def import_data(dataset):
+    data = np.genfromtxt(dataset, delimiter=',', skip_header=1)
+
+    # return data[np.argsort(data[:, 0])]
+    return data
+
+
+def find_linear_gradient(data, out=False):
+    x_data = data[:, 0]
+    y_data = data[:, 1]
+
+    sample_gradients = [(y_data[i + 2] - y_data[i]) / (x_data[i + 2] - x_data[i])
+                        for i in range(data.shape[0] - 2)]
+
+    gradient_error = np.sqrt(data[0, 2]**2 / 
+            (data.shape[0] * (np.mean(x_data**2) - np.mean(x_data)**2)))
+
+    if out:
+        print(gradient_error)
+
+    return max(sample_gradients), gradient_error
+
+
+def straight_line(x_values, gradient, intercept):
+    return gradient * x_values + intercept
+
+
+def main(fixed_grid, fixed_anode, s):
+    fixed_grid_data = [import_data(dataset) for dataset in fixed_grid]
+    fixed_anode_data = [import_data(dataset) for dataset in fixed_anode]
+
+    for dataset in fixed_anode_data:
+        dataset[:, 0] *= -10
+        # dataset[:, 2] *= 0.05 * dataset[:, 1]
+        for datapoint in dataset:
+            datapoint[2] = 0.05 * datapoint[1] if 0.05*datapoint[1] > 1 else 1
+    
+    for dataset in fixed_grid_data:
+        dataset[:, 0] *= 50
+        # dataset[:, 2] *= 0.05 * dataset[:, 1]
+        for datapoint in dataset:
+            datapoint[2] = 0.05 * datapoint[1] if 0.05*datapoint[1] > 1 else 1
+
+    # FIXED GRID
+    fixed_grid_gradients = np.empty((0, 2))
+    for dataset in fixed_grid_data:
+        grad_error = find_linear_gradient(dataset)
+        fixed_grid_gradients = np.vstack((fixed_grid_gradients, np.array(grad_error)))
+
+    grid_gradient_weights = 1 / fixed_grid_gradients[:, 1]**2
+
+    grid_grad_weighted_avg = np.sum(fixed_grid_gradients[:, 0] * grid_gradient_weights) / np.sum(grid_gradient_weights)
+
+    grid_avg_grad_error = 1 / np.sqrt(np.sum(grid_gradient_weights))
+
+
+    # FIXED ANODE
+    fixed_anode_gradients = np.empty((0, 2))
+    for dataset in fixed_anode_data:
+        grad_error = find_linear_gradient(dataset)
+        fixed_anode_gradients = np.vstack((fixed_anode_gradients, np.array(grad_error)))
+
+    anode_gradient_weights = 1 / fixed_anode_gradients[:, 1]**2
+
+    anode_grad_weighted_avg = np.sum(fixed_anode_gradients[:, 0] * anode_gradient_weights) / np.sum(anode_gradient_weights)
+
+    anode_avg_grad_error = 1 / np.sqrt(np.sum(anode_gradient_weights))
+
+
+    # amp_factor = grid_grad_weighted_avg / anode_grad_weighted_avg
+    amp_factor = anode_grad_weighted_avg / grid_grad_weighted_avg
+
+    amp_error = amp_factor * np.sqrt((grid_avg_grad_error / grid_grad_weighted_avg)**2 + 
+                                     (anode_avg_grad_error / anode_grad_weighted_avg)**2)
+
+    plot_data(r"V$_{a}$ (V)",
+              r"I$_{a}$ ($\mu$A)",
+              f"Grid {s+1}: " + r"V$_{a}$ vs I$_{a}$ at fixed V$_{g}$",
+              f"v_a_i_a{s+1}.png", #-------------------------------------------------------
+              (s, 0),
+              *fixed_grid_data)
+
+    plot_data(r"V$_{g}$ (V)",
+              r"I$_{a}$ ($\mu$A)",
+              f"Grid {s+1}: " + r"V$_{g}$ vs I$_{a}$ at fixed V$_{a}$",
+              f"v_g_i_a{s+1}.png", #-------------------------------------------------------
+              (s, 1),
+              *fixed_anode_data)
+
+    print(f"Amplification factor: {amp_factor} +/- {amp_error}")    
+
+    if s == 2:
+        return amp_factor
+
+
+def current_func(current_data):
+    data = import_data(current_data)
+
+    data[:, 0] *= -10
+    data[:, 1] *= 50
+    data[:, 2] *= 50
+    # for datapoint in data:
+    #     datapoint[2] = 0.05*datapoint[1]
+
+    [gradient, intercept], [grad_error, _] = fit_distribution(straight_line,
+                                                                    data[:, 0],
+                                                                    data[:, 1],
+                                                                    data[:, 2],
+                                                                    -5, 0.005)
+    chi, red_chi = chi_analysis(straight_line, data[:, 0], data[:, 1], data[:, 2],
+                                gradient, intercept)
+    
+    print(f"m = {gradient} +/- {grad_error}")
+
+    fig = plt.figure(0)
+    axes = fig.add_subplot(111)
+
+    axes.errorbar(data[:, 0], data[:, 1], yerr=data[:, 2], fmt='.', markersize=4, color='red')
+
+    axes.plot(data[:, 0], straight_line(data[:, 0], gradient, intercept), linewidth=2, color='blue',
+              label=r'Line of best fit for fixed I$_{a} = 700 \mu$A')
+
+    axes.text(-12, 160, r"$\chi^{2}$ = " + f"{chi:.3f}\n" + r"$\chi_{red}^{2}$ = " + f"{red_chi:.3f}")
+
+    axes.set_title(r"V$_{g}$ vs V$_{a}$ at fixed I$_{a}$", fontsize=16, color="black")
+    axes.set_xlabel(r"V$_{g}$ (V)", fontsize=12)
+    axes.set_ylabel(r"V$_{a}$ (V)", fontsize=12)
+
+    axes.legend(loc='upper right', fontsize=11)
+    plt.savefig("v_g_v_a_i_700.png", dpi=900)
+    plt.show()
+
+    return np.abs(gradient)
+
+
+if __name__ == "__main__":
+    # main(A_FIXED_GRID_DATA, A_FIXED_ANODE_DATA, 0)
+    # main(B_FIXED_GRID_DATA, B_FIXED_ANODE_DATA, 1)
+    # amp = main(C_FIXED_GRID_DATA, C_FIXED_ANODE_DATA, 2)
+    grad = current_func(D_FIXED_CURRENT_DATA)
+    # grad = 1
+
+    # error = np.std(np.array([amp, grad]))
+
+    # print(error)

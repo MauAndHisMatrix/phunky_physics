@@ -1,0 +1,46 @@
+{
+    "editor.suggestSelection": "first",
+    "vsintellicode.modify.editor.suggestSelection": "automaticallyOverrodeDefaultValue",
+    "workbench.colorTheme": "Kimbie Dark",
+    "terminal.integrated.fontFamily": "monospace",
+    // "editor.fontFamily": "'Cascadia Code', 'Courier New', monospace, 'Droid Sans Fallback'",
+    // "editor.fontFamily": "'Noto Mono', 'Courier New', monospace, 'Droid Sans Fallback'",
+    // "editor.fontFamily": "'Hack', 'Courier New', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'Fira Code', 'Courier New', monospace, 'Droid Sans Fallback'",
+    "editor.fontLigatures": true,
+    // "editor.fontWeight": "300", // Light
+    // "editor.fontWeight": "400", // Regular
+    "editor.fontWeight": "500", // Medium
+    // "editor.fontWeight": "600", // Bold
+    "editor.tokenColorCustomizations": {
+      "textMateRules": [
+          {
+              "scope": "keyword",
+              "settings": {
+                  "fontStyle": "bold"
+              }
+          },
+          {
+              "scope": "storage",
+              "settings": {
+                  "fontStyle": "bold"
+              }
+          },
+          {
+              "scope": "constant.language",
+              "settings": {
+                  "fontStyle": "bold"
+              }
+          },
+          {
+              "scope": "support.class.builtin",
+              "settings": {
+                  "fontStyle": "bold"
+              }
+          }
+      ]
+},
+"workbench.editorAssociations": {
+    "*.ipynb": "jupyter.notebook.ipynb"
+}
+}

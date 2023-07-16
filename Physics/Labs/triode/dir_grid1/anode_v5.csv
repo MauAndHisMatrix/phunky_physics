@@ -1,0 +1,13 @@
+Grid Voltage (-10V), Anode current (microA) , Uncertainty (microA) GRID ANODE VOLTAGE = 250 V
+2.5,3,1
+2.25,10,1
+2,28,1
+1.75,65,1
+1.5,140,1
+1.25,256,1
+1,412,1
+0.75,574,1
+0.5,716,1
+0.25,781,1
+0,795,1 
+
